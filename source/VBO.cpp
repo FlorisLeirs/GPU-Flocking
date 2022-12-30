@@ -1,4 +1,5 @@
-﻿#include "VBO.h"
+﻿#include "pch.h"
+#include "VBO.h"
 
 VBO::VBO(GLfloat* pVertices, GLsizeiptr pSize)
 {

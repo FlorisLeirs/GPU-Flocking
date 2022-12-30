@@ -1,11 +1,12 @@
-﻿#include "Camera.h"
+﻿#include "pch.h"
+#include "Camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp>
 #include "Shader.h"
 
-Camera::Camera(int width, int height, glm::vec3 pos)
+Camera::Camera(int& width, int& height, glm::vec3 pos)
 	: m_Pos(pos)
 	, m_Width(width)
 	, m_Height(height)
@@ -26,6 +27,8 @@ void Camera::Matrix(float FOVdeg, float nearPlane, float farPlane, Shader* pShad
 
 void Camera::Inputs(GLFWwindow* pWindow)
 {
+	glfwGetWindowSize(pWindow, &m_Width, &m_Height);
+
 	//WASD
 	if (glfwGetKey(pWindow, GLFW_KEY_W) == GLFW_PRESS)
 	{

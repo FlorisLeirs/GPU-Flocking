@@ -1,14 +1,12 @@
 ﻿#pragma once
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 
 class Shader;
 
 class Camera
 {
 public:
-	Camera(int width, int height, glm::vec3 pos);
+	Camera(int& width, int& height, glm::vec3 pos);
 
 	void Matrix(float FOVdeg, float nearPlane, float farPlane, Shader* pShader, const char* uniform);
 	void Inputs(GLFWwindow* pWindow);
@@ -18,6 +16,9 @@ public:
 	glm::vec3 GetUpVector() const { return m_Up; }
 	int GetWidth()const { return m_Width; }
 	int GetHeight()const { return m_Height; }
+
+	void SetWidth(int& width) { m_Width = width; }
+	void SetHeight(int& height) { m_Height = height; }
 
 
 private:

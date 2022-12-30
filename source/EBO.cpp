@@ -1,4 +1,5 @@
-﻿#include "EBO.h"
+﻿#include "pch.h"
+#include "EBO.h"
 
 EBO::EBO(GLuint* pIndices, GLsizeiptr pSize)
 {

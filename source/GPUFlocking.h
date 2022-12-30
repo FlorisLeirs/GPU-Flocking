@@ -1,6 +1,12 @@
 ﻿#pragma once
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#pragma warning( push )
+#pragma warning( disable : 4005 )
+#include <CL/cl.hpp>
+#pragma warning( pop )
+
+class Camera;
 
 class GPUFlocking
 {
@@ -18,4 +24,6 @@ private:
 	int m_Height;
 
 	GLFWwindow* m_pWindow = nullptr;
+	cl::Program* m_pProgram = nullptr;
+	Camera* m_pCamera;
 };

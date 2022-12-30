@@ -1,6 +1,13 @@
+#include "pch.h"
 #include <iostream>
 #include "GPUFlocking.h"
 
+#if _DEBUG
+// ReSharper disable once CppUnusedIncludeDirective
+#if __has_include(<vld.h>)
+#include <vld.h>
+#endif
+#endif
 
 
 

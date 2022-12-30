@@ -1,38 +1,21 @@
-﻿#include "GPUFlocking.h"
+﻿#include "pch.h"
+#include "GPUFlocking.h"
+
+#include <chrono>
+#include <fstream>
 #include <iostream>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <CL/cl.hpp>
-
-#include "Shader.h"
-#include "VBO.h"
-#include "EBO.h"
-#include "VAO.h"
+#include "BoidManager.h"
 #include "Camera.h"
+#include "Renderer.h"
 
 
-GLfloat vertices[] =
-{ //	COORDINATES		  /			COLORS
-	-0.25f, 0.0f,  0.5f,	  0.83f, 0.70f, 0.44f,
-	-0.25f, 0.0f, -0.5f,	  0.83f, 0.70f, 0.44f,
-	 0.25f, 0.0f, -0.5f,	  0.83f, 0.70f, 0.44f,
-	 0.25f, 0.0f,  0.5f,	  0.83f, 0.70f, 0.44f,
-	 0.00f, 0.8f,  0.0f,	  0.92f, 0.86f, 0.76f
-};
-
-GLuint indices[] =
-{
-	0, 1, 2,
-	0, 2, 3,
-	0, 1, 4,
-	1, 2, 4,
-	2, 3, 4,
-	3, 0, 4
-};
 
 
 GPUFlocking::~GPUFlocking()
 {
+	Renderer::GetInstance().Destroy();
+	BoidManager::GetInstance().Destroy();
+
 	glfwDestroyWindow(m_pWindow);
 	glfwTerminate();
 }
@@ -41,61 +24,22 @@ void GPUFlocking::Run()
 {
 	Initialize();
 
-	//Create program
-	Shader shaderProgram{ "default.vert", "default.frag" };
-
-	//create vertex array object
-	VAO VAO1;
-	VAO1.Bind();
-
-	// create vertex buffer object and element buffer object
-	VBO VBO1{ vertices, sizeof(vertices) };
-	EBO EBO1{ indices, sizeof(indices) };
-
-	// link VBO to VAO
-	VAO1.LinkAttrib(&VBO1, 0, 3, GL_FLOAT, 6 * sizeof(GLfloat), nullptr);
-	VAO1.LinkAttrib(&VBO1, 1, 3, GL_FLOAT, 6 * sizeof(GLfloat), reinterpret_cast<void*>(3 * sizeof(GLfloat)));
-
-	VAO1.UnBind();
-	VBO1.UnBind();
-	EBO1.UnBind();
-
-
-	float rotation = 0.0f;
-	double prevTime = glfwGetTime();
-
-	glEnable(GL_DEPTH_TEST);
-
-	Camera* pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 2.f));
-
-
+	auto lastTime = std::chrono::high_resolution_clock::now();
 	//loop
 	while (!glfwWindowShouldClose(m_pWindow))
 	{
-		glClearColor(0.2f, 0.4f, 0.7f, 1.f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		const auto currentTime = std::chrono::high_resolution_clock::now();
+		const float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
 
-		shaderProgram.Activate();
+		//TODO update
+		BoidManager::GetInstance().Update(deltaTime);
+		//TODO write kernel
+		m_pCamera->Inputs(m_pWindow);
 
-		pCamera->Inputs(m_pWindow);
-		pCamera->Matrix(45.f, 0.1f, 100.f, &shaderProgram, "camMatrix");
-
-
-		// scale
-		//glUniform1f(uniID, 1.5f);
-
-		VAO1.Bind();
-
-		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
-		glfwSwapBuffers(m_pWindow);
-
+		Renderer::GetInstance().Render(m_pWindow);
 		glfwPollEvents();
 	}
 
-	VAO1.Delete();
-	VBO1.Delete();
-	EBO1.Delete();
-	shaderProgram.Delete();
 }
 
 void GPUFlocking::Initialize()
@@ -114,14 +58,10 @@ void GPUFlocking::Initialize()
 		glfwTerminate();
 		return;
 	}
-
 	glfwMakeContextCurrent(m_pWindow);
 
-	//load glad
-	gladLoadGL();
 
-	//specify viewport
-	glViewport(0, 0, m_Width, m_Height);
+	m_pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 2.f));
 
 
 
@@ -133,7 +73,18 @@ void GPUFlocking::Initialize()
 
 	//Create device
 	std::vector<cl::Device> devices;
-	platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
-	cl::Device device = devices.front(); 
+	platform.getDevices(CL_DEVICE_TYPE_GPU, &devices);
+	cl::Device device = devices.front();
 
+	std::ifstream kernelFile{ "Flocking.cl" };
+	std::string srcStr{ std::istreambuf_iterator<char>(kernelFile), std::istreambuf_iterator<char>() };
+
+	cl::Program::Sources sources(1, std::make_pair(srcStr.c_str(), srcStr.length() + 1));
+	cl::Context context(device);
+	cl::Program program(context, sources);
+
+
+
+	Renderer::GetInstance().Initialize(m_pWindow, m_pCamera);
+	BoidManager::GetInstance().Initialize(1, &program);
 }

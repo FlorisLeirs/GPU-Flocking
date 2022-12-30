@@ -1,4 +1,5 @@
-﻿#include "VAO.h"
+﻿#include "pch.h"
+#include "VAO.h"
 #include "VBO.h"
 
 VAO::VAO()
