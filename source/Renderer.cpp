@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "Renderer.h"
 
+#include <glm/gtc/type_ptr.hpp>
+
 #include "Camera.h"
 #include "EBO.h"
 #include "Shader.h"
@@ -10,11 +12,11 @@
 
 GLfloat vertices[] =
 {
-	-0.25f, 0.0f,  0.5f,
-	-0.25f, 0.0f, -0.5f,
-	 0.25f, 0.0f, -0.5f,
-	 0.25f, 0.0f,  0.5f,
-	 0.00f, 0.8f,  0.0f
+	-0.25f, -.4f,  0.5f,
+	-0.25f, -.4f, -0.5f,
+	 0.25f, -.4f, -0.5f,
+	 0.25f, -.4f,  0.5f,
+	 0.00f, 0.4f,  0.0f
 };
 
 GLuint indices[] =
@@ -92,7 +94,7 @@ void Renderer::Render(GLFWwindow* pWindow) const
 
 	m_pShader->Activate();
 
-	m_pCamera->Matrix(45.f, 0.1f, 100.f, m_pShader, "camMatrix");
+	m_pCamera->Matrix(45.f, 0.1f, 200.f, m_pShader, "camMatrix");
 
 	m_pVAO->Bind();
 	BoidManager::GetInstance().Render();
@@ -103,5 +105,7 @@ void Renderer::Render(GLFWwindow* pWindow) const
 
 void Renderer::RenderBoid(glm::mat4 transform)
 {
+	GLuint transformLoc = glGetUniformLocation(m_pShader->GetID(), "transformMatrix");
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
 }

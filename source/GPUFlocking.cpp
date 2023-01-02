@@ -44,6 +44,8 @@ void GPUFlocking::Run()
 
 void GPUFlocking::Initialize()
 {
+	srand (time(NULL));
+
 	glfwInit();
 	//Setup version and profile
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -86,5 +88,5 @@ void GPUFlocking::Initialize()
 
 
 	Renderer::GetInstance().Initialize(m_pWindow, m_pCamera);
-	BoidManager::GetInstance().Initialize(1, &program);
+	BoidManager::GetInstance().Initialize(1000, &program);
 }
