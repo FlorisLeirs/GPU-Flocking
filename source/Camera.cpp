@@ -27,7 +27,7 @@ void Camera::Matrix(float FOVdeg, float nearPlane, float farPlane, Shader* pShad
 
 void Camera::Inputs(GLFWwindow* pWindow)
 {
-	glfwGetWindowSize(pWindow, &m_Width, &m_Height);
+	//glfwGetWindowSize(pWindow, &m_Width, &m_Height);
 
 	//WASD
 	if (glfwGetKey(pWindow, GLFW_KEY_W) == GLFW_PRESS)

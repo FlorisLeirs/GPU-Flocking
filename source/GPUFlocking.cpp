@@ -28,6 +28,7 @@ void GPUFlocking::Run()
 	//loop
 	while (!glfwWindowShouldClose(m_pWindow))
 	{
+		
 		const auto currentTime = std::chrono::high_resolution_clock::now();
 		const float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
 
@@ -38,6 +39,7 @@ void GPUFlocking::Run()
 
 		Renderer::GetInstance().Render(m_pWindow);
 		glfwPollEvents();
+		lastTime = currentTime;
 	}
 
 }
@@ -63,7 +65,7 @@ void GPUFlocking::Initialize()
 	glfwMakeContextCurrent(m_pWindow);
 
 
-	m_pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 2.f));
+	m_pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 50.f));
 
 
 
@@ -84,7 +86,11 @@ void GPUFlocking::Initialize()
 	cl::Program::Sources sources(1, std::make_pair(srcStr.c_str(), srcStr.length() + 1));
 	cl::Context context(device);
 	cl::Program program(context, sources);
-
+	cl_int err = 0;
+	err = program.build();
+	std::string info;
+	program.getBuildInfo(device, CL_PROGRAM_BUILD_LOG, &info);
+	std::cout << info << std::endl;
 
 
 	Renderer::GetInstance().Initialize(m_pWindow, m_pCamera);

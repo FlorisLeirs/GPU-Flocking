@@ -19,12 +19,15 @@ public:
 private:
 	std::vector<Boid*> m_pBoids;
 	cl::Program* m_pProgram;
-	cl::Context* m_pContext;
-	cl::Device* m_pDevice;
-	cl::Kernel* m_pKernel;
+	cl::Context m_Context;
+	cl::Device m_Device;
+	cl::Kernel m_Kernel;
+	cl::CommandQueue m_Queue;
 
-	const float m_NeighbourRadius = 40.f;
-
+	float m_NeighbourRadius = 5000.f;
+	float m_MaxSpeed = 1.f;
+	float m_DeltaTime{};
+	
 	float m_SeperationWeigth = 0.65f;
 	float m_CohesionWeigth = 0.45f;
 	float m_AllignmentWeigth = 0.4f;
@@ -36,5 +39,16 @@ private:
 	std::vector<float> m_PrevPositions{};
 	std::vector<float> m_CurrentVelocities{};
 
+	cl::Buffer m_TransformBuf;
+	cl::Buffer m_PrevPosBuf;
+	cl::Buffer m_VelocityBuf;
+	cl::Buffer m_WeightsBuf;
+	cl::Buffer m_TimeBuf;
+	cl::Buffer m_MaxSpeedBuf;
+	cl::Buffer m_NeighbourhoodSizeBuf;
+	cl::Buffer m_DebugBuf;
+
+
+	void SetUpOpenCL();
 
 };
