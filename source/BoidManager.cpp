@@ -75,14 +75,15 @@ void BoidManager::Update(float deltaTime)
 	std::vector<cl::Event> events{};
 	cl::Event timeEvent{};
 	cl::Event flockingEvent{};
-	cl::Event transformEvent{};
-
+	cl::Event transformEvent;
+	std::vector<UINT> randomVector{static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand())};
+	err = m_Queue.enqueueWriteBuffer(m_RandomsBuf, CL_TRUE, 0, sizeof(float), randomVector.data());
 	err = m_Queue.enqueueWriteBuffer(m_TimeBuf, CL_TRUE, 0, sizeof(float), &deltaTime, NULL, &timeEvent);
 	events.push_back(timeEvent);
 	err = m_Queue.enqueueNDRangeKernel(m_Kernel, cl::NullRange, cl::NDRange(m_pBoids.size()), cl::NullRange, &events, &flockingEvent);
 	events.push_back(flockingEvent);
 	err = m_Queue.enqueueReadBuffer(m_TransformBuf, CL_TRUE, 0, sizeof(float) * m_Tranforms.size(),
-		m_Tranforms.data());
+		m_Tranforms.data(), NULL, &transformEvent);
 
 
 	//debug
@@ -90,7 +91,7 @@ void BoidManager::Update(float deltaTime)
 	//err = m_Queue.enqueueReadBuffer(m_DebugBuf, CL_FALSE, 0, sizeof(int) * m_pBoids.size(),
 	//	debugVector.data());
 
-	//err = transformEvent.wait();//wait until transform buffer is read by host
+	err = transformEvent.wait();//wait until transform buffer is read by host
 
 	for (int i{}; i != m_pBoids.size(); ++i)
 	{
@@ -132,7 +133,7 @@ void BoidManager::SetUpOpenCL()
 		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * m_CurrentVelocities.size(), m_CurrentVelocities.data(), &err);
 
-	std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth };
+	std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth, m_WanderWeight };
 	m_WeightsBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * weights.size(), weights.data(), &err);
 
@@ -140,11 +141,12 @@ void BoidManager::SetUpOpenCL()
 		m_Context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float), &m_DeltaTime, &err);
 
-	m_MaxSpeedBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
-		sizeof(float), &m_MaxSpeed, &err);
+	std::vector<UINT> randomVector{static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand())};
+	m_RandomsBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+		sizeof(UINT) * randomVector.size(), randomVector.data(), &err);
 
-	m_NeighbourhoodSizeBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
-		sizeof(float), &m_NeighbourRadius, &err);
+	//m_NeighbourhoodSizeBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+	//	sizeof(float), &m_NeighbourRadius, &err);
 
 
 	//m_DebugBuf = cl::Buffer(m_Context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_READ_ONLY,
@@ -156,8 +158,8 @@ void BoidManager::SetUpOpenCL()
 	err = m_Kernel.setArg(2, m_VelocityBuf);
 	err = m_Kernel.setArg(3, m_WeightsBuf);
 	err = m_Kernel.setArg(4, m_TimeBuf);
-	err = m_Kernel.setArg(5, m_MaxSpeedBuf);
-	err = m_Kernel.setArg(6, m_NeighbourhoodSizeBuf);
+	err = m_Kernel.setArg(5, m_RandomsBuf);
+	//err = m_Kernel.setArg(6, m_NeighbourhoodSizeBuf);
 	//err = m_Kernel.setArg(7, m_DebugBuf);
 
 	m_Queue = cl::CommandQueue(m_Context, m_Device);

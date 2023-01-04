@@ -1,77 +1,112 @@
-// dynamic array struct
+// array struct
 typedef struct {
-  int array[50];
+  int array[100];
   size_t used;
 } Array;
 void InitArray(Array* a);
 void InsertArray(Array* a, int element);
-//void FreeArray(Array *a);
+void FreeArray(Array *a);
 // forward declarations
-void GetNeighbours(__global float3* previousPos, float3 currPos, float neighbourhoodSize, Array* neighbours, int globalId);
+void GetNeighbours(float3* previousPos, float3 currPos, float neighbourhoodSize, Array* neighbours, int globalId);
 float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours);
 float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours);
 float3 Seek(float3 target, float3 pos);
 float3 Seperation(float3* previousPos, Array* neighbours, float3 pos);
 float16 Rotate(float16 transformMatrix, float angle, float3 axis);
+float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId);
 
-
-
-
-//weights: [0] = cohesion, [1]=allignment, [2]=seperation
-__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __constant float* weights, __constant float* time, __constant float* maxSpeed, __constant float* neighbourhoodSize)
+//weights: [0] = cohesion, [1]=allignment, [2]=seperation, [3]=wander
+__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __constant float* weights, __constant float* time, __global uint2* randoms)
 {
 	size_t globalId = get_global_id(0); // current agent id in workgroup
 	float3 up = (float3)(0.0f, 1.0f, 0.0f);
 	
+	constant float maxSpeed = 5.0f;
+	constant float neighbourhoodSize = 20.f;
+	
 	//Create neighbours array
-	Array neighbours;
+	private Array neighbours;
 	InitArray(&neighbours);
-	GetNeighbours(previousPos, previousPos[globalId], neighbourhoodSize[0], &neighbours, globalId);// register neighbour indices
+	GetNeighbours(previousPos, previousPos[globalId], neighbourhoodSize, &neighbours, globalId);// register neighbour indices
 	
 	float3 linearVelocity = (float3)(0.0f, 0.0f, 0.0f);
 	//Cohesion
 	float3 averageNeighbourLoc = GetAverageNeighbourPos(previousPos, &neighbours);
 	float3 cohesionVelocity = Seek(averageNeighbourLoc, previousPos[globalId]);
 	
-	linearVelocity += fast_normalize(cohesionVelocity) * weights[0];//set linear velocity
+	//linearVelocity += fast_normalize(cohesionVelocity) * weights[0];//set linear velocity
 	
 	//Allignment
 	float3 allignmentVelocity = GetAverageNeighbourVelocity(currentVelocity, &neighbours);
 	allignmentVelocity = fast_normalize(allignmentVelocity);
 	
-	linearVelocity += allignmentVelocity * weights[1];// add to linear velocity
+	//linearVelocity += allignmentVelocity * weights[1];// add to linear velocity
 	
 	//Seperation
 	float3 seperationVelocity = Seperation(previousPos, &neighbours, previousPos[globalId]);
 	
-	linearVelocity += normalize(seperationVelocity) * weights[2];// add to linear velocity
+	//linearVelocity += fast_normalize(seperationVelocity) * weights[2];// add to linear velocity
+	
+	//Wander
+	float3 wanderVelocity = Wander(previousPos[globalId], currentVelocity[globalId], randoms[0], globalId);
+	
+	linearVelocity += wanderVelocity * weights[3];
 	
 	float3 direction = normalize(linearVelocity);
-	linearVelocity = direction * maxSpeed[0] * time[0];
+	linearVelocity = direction * maxSpeed * time[0];
 	//linearVelocity = (float3)(1.0f, 0.0f, 0.0f) * time[0];
+	
+	float3 newPos = previousPos[globalId] + linearVelocity;
+	// X
+	if(newPos.x > 100.0f)
+	{
+		newPos.x = -100.0f;
+	}
+	else if(newPos.x < -100.0f)
+	{
+		newPos.x = 100.0f;
+	}
+	// Y
+	if(newPos.y > 100.0f)
+	{
+		newPos.y = -100.0f;
+	}
+	else if(newPos.y < -100.0f)
+	{
+		newPos.y = 100.0f;
+	}
+	// Z
+	if(newPos.z > 100.0f)
+	{
+		newPos.z = -100.0f;
+	}
+	else if(newPos.z < -100.0f)
+	{
+		newPos.z = 100.0f;
+	}
 	
 	barrier(CLK_GLOBAL_MEM_FENCE); // all previous must be completed on all work items	
 	
 	
 	//change global values
 	currentVelocity[globalId] = linearVelocity;
-	previousPos[globalId] += linearVelocity;
+	previousPos[globalId] = newPos;	
 	
 	//translate matrix
 	transform[globalId].sCDE = previousPos[globalId];
 	
 	//rotate matrix
-	float angle = acos(dot(up, direction));
-	float3 axis = cross(direction, up);
-	if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
-		transform[globalId] = Rotate(transform[globalId], angle, axis);
-
-
-	//FreeArray(&neigbours);
+	//float angle = acos(dot(up, direction));
+	//float3 axis = cross(direction, up);
+	//if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
+		//transform[globalId] = Rotate(transform[globalId], angle, axis);
+	
+	//transform[globalId].s0 = neighbours.array[0];
+	FreeArray(&neighbours);
 }
 
 // Get indices of neigbours
-void GetNeighbours(__global float3* previousPos, float3 currPos, float neighbourhoodSize, Array* neighbours, int globalId)
+void GetNeighbours(float3* previousPos, float3 currPos, float neighbourhoodSize, Array* neighbours, int globalId)
 {
 	for(int i = 0; i != 1000; ++i)
 	{
@@ -86,6 +121,7 @@ void GetNeighbours(__global float3* previousPos, float3 currPos, float neighbour
 	
 }
 
+// average position in previous frame
 float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours)
 {
 	float3 average = (float3)(0.0f, 0.0f, 0.0f);
@@ -102,6 +138,7 @@ float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours)
 	return average;
 }
 
+// Average velocity in previous frame
 float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours)
 {
 	float3 average = (float3)(0.0f, 0.0f, 0.0f);
@@ -126,10 +163,11 @@ float3 Seek(float3 target, float3 pos)
 	return linearVelocity;
 }
 
+// Seperation behaviour
 float3 Seperation(float3* previousPos, Array *neighbours, float3 pos)
 {
 	float3 linearVelocity = (float3)(0.0f, 0.0f, 0.0f);
-		if(neighbours->used < 1)
+	if(neighbours->used < 1)
 	{
 		return linearVelocity;
 	}
@@ -137,8 +175,8 @@ float3 Seperation(float3* previousPos, Array *neighbours, float3 pos)
 	float3 steeringCurrentNeighbour;
 	for(int i = 0; i != neighbours->used; ++i)
 	{
-		steeringCurrentNeighbour = -(previousPos[neighbours->array[i]]- pos);
-		steeringCurrentNeighbour /= fast_distance(previousPos[neighbours->array[i]], pos); // longer distance -> smaller velocity
+		steeringCurrentNeighbour = -(previousPos[neighbours->array[i]] - pos);
+		//steeringCurrentNeighbour /= fast_distance(previousPos[neighbours->array[i]], pos); // longer distance -> smaller velocity
 		linearVelocity += steeringCurrentNeighbour;
 	}
 	
@@ -146,7 +184,36 @@ float3 Seperation(float3* previousPos, Array *neighbours, float3 pos)
 	return linearVelocity;
 }
 
+// Wander behaviour
+float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId)
+{
+	int radius = 20.0f;
+	int offset = 15.0f;
+	// generate random number 
+	//https://stackoverflow.com/questions/9912143/how-to-get-a-random-number-in-opencl
+	uint seed = randoms.x + globalId;
+	uint t = seed ^ (seed << 11);  
+	uint result = randoms.y ^ (randoms.y >> 19) ^ (t ^ (t >> 8));
+	
+	// get angle
+	float angle = result % 90 - 45;
+	angle = radians(angle);
+	// get z coordinate
+	int z = result % 20 - 10;
+	
+	// Create target position
+	float3 target = (float3)(cos(angle), sin(angle), z);
+	target = normalize(target) * radius;
+	target += previousPos + normalize(currentVelocity) * offset;
+	
+	
+	float3 linearVelocity = Seek(target, previousPos);
+	return linearVelocity;
+	
+}
 
+
+//Rotation matrix
 float16 Rotate(float16 transformMatrix, float angle, float3 axis)
 {
 	float c = cos(angle);
@@ -167,6 +234,9 @@ float16 Rotate(float16 transformMatrix, float angle, float3 axis)
 	rotateMat.s9 = temp.z * axis.y - s * axis.x;
 	rotateMat.sA = c + temp.z * axis.z;
 	
+	transformMatrix.s0123 = (float4)(1.0f,0.0f,0.0f,0.0f);
+	transformMatrix.s4567 = (float4)(0.0f,1.0f,0.0f,0.0f);
+	transformMatrix.s89ab = (float4)(0.0f,0.0f,1.0f,0.0f);
 	float16 result;
 	result.s0123 = transformMatrix.s0123 * rotateMat.s0 + transformMatrix.s4567 * rotateMat.s1 + transformMatrix.s89ab * rotateMat.s2;
 	result.s4567 = transformMatrix.s0123 * rotateMat.s4 + transformMatrix.s4567 * rotateMat.s5 + transformMatrix.s89ab * rotateMat.s6;
@@ -182,7 +252,7 @@ void InitArray(Array* a)
 }
 void InsertArray(Array* a, int element) 
 {
-  if (a->used == 50) 
+  if (a->used == 100) 
   {
 	  return;
   }
@@ -191,8 +261,6 @@ void InsertArray(Array* a, int element)
   a->used += 1;
 }
 
-//void FreeArray(Array *a) {
- // free(a->array);
-//  a->array = NULL;
-//  a->used = a->size = 0;
-//}
+void FreeArray(Array *a) {
+ a->used = 0;
+}
