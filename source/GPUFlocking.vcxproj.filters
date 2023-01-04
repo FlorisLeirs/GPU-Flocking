@@ -42,9 +42,6 @@
     <ClCompile Include="glad.c">
       <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Boid.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GPUFlocking.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -84,9 +81,6 @@
     </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Boid.h">
-      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="GPUFlocking.h">
       <Filter>Source Files</Filter>

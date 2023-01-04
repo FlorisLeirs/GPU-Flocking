@@ -155,7 +155,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Boid.cpp" />
     <ClCompile Include="BoidManager.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="EBO.cpp" />
@@ -179,7 +178,6 @@
     <None Include="Flocking.cl" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Boid.h" />
     <ClInclude Include="BoidManager.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="EBO.h" />

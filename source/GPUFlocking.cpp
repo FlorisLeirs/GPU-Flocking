@@ -32,9 +32,9 @@ void GPUFlocking::Run()
 		const auto currentTime = std::chrono::high_resolution_clock::now();
 		const float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
 
-		//TODO update
+		
 		BoidManager::GetInstance().Update(deltaTime);
-		//TODO write kernel
+		
 		m_pCamera->Inputs(m_pWindow);
 
 		Renderer::GetInstance().Render(m_pWindow);

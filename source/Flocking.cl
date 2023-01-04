@@ -34,24 +34,25 @@ __kernel void Flocking(__global float16* transform, __global float3* previousPos
 	float3 averageNeighbourLoc = GetAverageNeighbourPos(previousPos, &neighbours);
 	float3 cohesionVelocity = Seek(averageNeighbourLoc, previousPos[globalId]);
 	
-	//linearVelocity += fast_normalize(cohesionVelocity) * weights[0];//set linear velocity
+	linearVelocity += fast_normalize(cohesionVelocity) * weights[0];//set linear velocity
 	
 	//Allignment
 	float3 allignmentVelocity = GetAverageNeighbourVelocity(currentVelocity, &neighbours);
 	allignmentVelocity = fast_normalize(allignmentVelocity);
 	
-	//linearVelocity += allignmentVelocity * weights[1];// add to linear velocity
+	linearVelocity += allignmentVelocity * weights[1];// add to linear velocity
 	
 	//Seperation
 	float3 seperationVelocity = Seperation(previousPos, &neighbours, previousPos[globalId]);
 	
-	//linearVelocity += fast_normalize(seperationVelocity) * weights[2];// add to linear velocity
+	linearVelocity += fast_normalize(seperationVelocity) * weights[2];// add to linear velocity
 	
 	//Wander
 	float3 wanderVelocity = Wander(previousPos[globalId], currentVelocity[globalId], randoms[0], globalId);
 	
 	linearVelocity += wanderVelocity * weights[3];
 	
+	linearVelocity /= weights[0] + weights[1] + weights[2] + weights[3];
 	float3 direction = normalize(linearVelocity);
 	linearVelocity = direction * maxSpeed * time[0];
 	//linearVelocity = (float3)(1.0f, 0.0f, 0.0f) * time[0];
@@ -176,7 +177,7 @@ float3 Seperation(float3* previousPos, Array *neighbours, float3 pos)
 	for(int i = 0; i != neighbours->used; ++i)
 	{
 		steeringCurrentNeighbour = -(previousPos[neighbours->array[i]] - pos);
-		//steeringCurrentNeighbour /= fast_distance(previousPos[neighbours->array[i]], pos); // longer distance -> smaller velocity
+		steeringCurrentNeighbour /= fast_distance(previousPos[neighbours->array[i]], pos); // longer distance -> smaller velocity
 		linearVelocity += steeringCurrentNeighbour;
 	}
 	

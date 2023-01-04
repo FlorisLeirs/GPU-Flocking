@@ -94,7 +94,7 @@ void Renderer::Render(GLFWwindow* pWindow) const
 
 	m_pShader->Activate();
 
-	m_pCamera->Matrix(45.f, 0.1f, 400.f, m_pShader, "camMatrix");
+	m_pCamera->Matrix(45.f, 0.1f, 600.f, m_pShader, "camMatrix");
 
 	m_pVAO->Bind();
 	BoidManager::GetInstance().Render();
