@@ -9,5 +9,5 @@ uniform mat4 transformMatrix;
 void main()
 {
 	gl_Position = camMatrix * (transformMatrix * vec4(aPos, 1.0));
-	color = vec3(transformMatrix[3][0], transformMatrix[3][1], transformMatrix[3][2]);
+	color = vec3(transformMatrix[3][0]/100.0f, transformMatrix[3][1]/100.0f, transformMatrix[3][2]/100.0f);
 }

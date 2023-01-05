@@ -24,23 +24,23 @@ private:
 	cl::Device m_Device;
 	cl::Kernel m_Kernel;
 	cl::CommandQueue m_Queue;
+
 	cl::Buffer m_TransformBuf;
 	cl::Buffer m_PrevPosBuf;
 	cl::Buffer m_VelocityBuf;
 	cl::Buffer m_WeightsBuf;
 	cl::Buffer m_TimeBuf;
 	cl::Buffer m_RandomsBuf;
-	cl::Buffer m_SpeedBuf;
-	cl::Buffer m_DebugBuf;
+
 
 	float m_NeighbourRadius = 20.f;
-	float m_MaxSpeed = 1.0f;
+	float m_MaxSpeed = 15.0f;
 	float m_DeltaTime{};
 	
-	float m_SeperationWeigth = 0.4f;
-	float m_CohesionWeigth = 0.45f;
-	float m_AllignmentWeigth = 0.4f;
-	float m_WanderWeight = 0.35f;
+	float m_SeperationWeigth = 0.5f;
+	float m_CohesionWeigth = 0.5f;
+	float m_AllignmentWeigth = 0.5f;
+	float m_WanderWeight = 0.5f;
 
 	glm::vec3 m_MinPos{-50.f, -50.f, -50.f};// x, y and z min spawn positions
 	glm::vec3 m_MaxPos{50.f, 50.f, 50.f};// x, y and z max spawn positions
@@ -51,8 +51,7 @@ private:
 
 	bool m_ChangeWeight{false};
 	bool m_ChangeSpeed{false};
-
+	bool m_ChangeNeighbourhoodSize{false};
 
 	void SetUpOpenCL();
-
 };

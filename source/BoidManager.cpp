@@ -89,8 +89,10 @@ void BoidManager::Update(float deltaTime)
 		std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth, m_WanderWeight };
 		err = m_Queue.enqueueWriteBuffer(m_WeightsBuf, CL_FALSE, 0, sizeof(float) * weights.size(), weights.data());
 	}
-	if(m_ChangeSpeed)
+	if (m_ChangeSpeed)
 		err = m_Kernel.setArg(6, m_MaxSpeed);
+	if (m_ChangeNeighbourhoodSize)
+		err = m_Kernel.setArg(7, m_NeighbourRadius);
 
 	// change random values and deltaTime
 	std::vector<UINT> randomVector{ static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand()) };
@@ -122,8 +124,8 @@ void BoidManager::Render() const
 
 void BoidManager::UpdateUI(const int width)
 {
-	const float menuWidth = 300.f;
-	const float menuHeight = 300.f;
+	const float menuWidth = 350.f;
+	const float menuHeight = 400.f;
 	bool open = true;
 	ImGui::SetNextWindowPos(ImVec2(static_cast<float>(width) - menuWidth - 5, 5));
 	ImGui::SetNextWindowSize(ImVec2(menuWidth, menuHeight));
@@ -133,18 +135,26 @@ void BoidManager::UpdateUI(const int width)
 	ImGui::SliderFloat("Cohesion", &m_CohesionWeigth, 0.0f, 1.0f);
 	ImGui::SliderFloat("Allignment", &m_AllignmentWeigth, 0.0f, 1.0f);
 	ImGui::SliderFloat("Seperation", &m_SeperationWeigth, 0.0f, 1.0f);
-	ImGui::SliderFloat("Wander", &m_WanderWeight, 0.0f, 1.0f);
+	ImGui::SliderFloat("Wander", &m_WanderWeight, 0.1f, 1.0f);
 	ImGui::Spacing();
 	m_ChangeWeight = ImGui::Button("Save Weight");
 	ImGui::Spacing();
 	ImGui::Spacing();
+
 	ImGui::Spacing();
-	ImGui::SliderFloat("Speed", &m_MaxSpeed, 0.f, 20.f);
+	ImGui::SliderFloat("Speed", &m_MaxSpeed, 0.f, 25.f);
 	m_ChangeSpeed = ImGui::Button("Save Speed");
+	ImGui::Spacing();
+	ImGui::Spacing();
+
+	ImGui::Spacing();
+	ImGui::SliderFloat("Neighbourhood", &m_NeighbourRadius, 5.f, 40.f);
+	m_ChangeNeighbourhoodSize = ImGui::Button("Save Neighbourhood Size");
 	ImGui::Text("Values need to be saved to take effect");
 
 	ImGui::Spacing();
 	ImGui::Separator();
+	ImGui::Spacing();
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::PopAllowKeyboardFocus();
 	ImGui::End();
@@ -184,10 +194,6 @@ void BoidManager::SetUpOpenCL()
 	m_RandomsBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(UINT) * randomVector.size(), randomVector.data(), &err);
 
-	//m_SpeedBuf = cl::Buffer(
-	//	m_Context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
-	//	sizeof(float), &m_MaxSpeed, &err);
-
 	//Set kernel arguments
 	err = m_Kernel.setArg(0, m_TransformBuf);
 	err = m_Kernel.setArg(1, m_PrevPosBuf);
@@ -196,5 +202,6 @@ void BoidManager::SetUpOpenCL()
 	err = m_Kernel.setArg(4, m_TimeBuf);
 	err = m_Kernel.setArg(5, m_RandomsBuf);
 	err = m_Kernel.setArg(6, m_MaxSpeed);
+	err = m_Kernel.setArg(7, m_NeighbourRadius);
 
 }

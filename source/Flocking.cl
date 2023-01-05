@@ -1,6 +1,6 @@
 // array struct
 typedef struct {
-  int array[100];
+  int array[200];
   size_t used;
 } Array;
 void InitArray(Array* a);
@@ -15,13 +15,13 @@ float16 Rotate(float16 transformMatrix, float angle, float3 axis);
 float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId);
 
 //weights: [0] = cohesion, [1]=allignment, [2]=seperation, [3]=wander
-__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed)
+__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed, float neighbourhoodSize)
 {
 	size_t globalId = get_global_id(0); // current agent id in workgroup
 	float3 up = (float3)(0.0f, 1.0f, 0.0f);
 	
-	constant float maxSpeed = 5.0f;
-	constant float neighbourhoodSize = 20.f;
+	//constant float maxSpeed = 3.0f;
+	//constant float neighbourhoodSize = 10.f;
 	
 	//Create neighbours array
 	private Array neighbours;
@@ -85,24 +85,19 @@ __kernel void Flocking(__global float16* transform, __global float3* previousPos
 		newPos.z = 100.0f;
 	}
 	
-	barrier(CLK_GLOBAL_MEM_FENCE); // all previous must be completed on all work items	
-	
+	barrier(CLK_GLOBAL_MEM_FENCE); // all previous must be completed on all work items in work group
 	
 	//change global values
 	currentVelocity[globalId] = linearVelocity;
-	//previousPos[globalId] = newPos;	
 	
 	//translate matrix
 	transform[globalId].sCDE = previousPos[globalId] = newPos;
 	
 	//rotate matrix
-	float angle = acos(dot(up, direction));
-	float3 axis = cross(direction, up);
-	if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
-		transform[globalId] = Rotate(transform[globalId], angle, axis);
-	
-	//transform[globalId].s0 = neighbours.array[0];
-
+	//float angle = acos(dot(up, direction));
+	//float3 axis = cross(direction, up);
+	//if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
+	//	transform[globalId] = Rotate(transform[globalId], angle, axis);
 }
 
 // Get indices of neigbours
@@ -252,7 +247,7 @@ void InitArray(Array* a)
 }
 void InsertArray(Array* a, int element) 
 {
-  if (a->used == 100) 
+  if (a->used == 200) 
   {
 	  return;
   }

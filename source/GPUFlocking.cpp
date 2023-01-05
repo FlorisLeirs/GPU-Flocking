@@ -107,5 +107,5 @@ void GPUFlocking::Initialize()
 
 
 	Renderer::GetInstance().Initialize(m_pWindow, m_pCamera);
-	BoidManager::GetInstance().Initialize(5000, &program);
+	BoidManager::GetInstance().Initialize(20000, &program);
 }

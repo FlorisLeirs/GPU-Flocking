@@ -63,12 +63,12 @@ void Camera::Inputs(GLFWwindow* pWindow)
 	// Speed up
 	if (glfwGetKey(pWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 	{
-		m_Speed = 0.4f;
+		m_Speed = 0.8f;
 	}
 	// Put speed back to normal
 	if (glfwGetKey(pWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE)
 	{
-		m_Speed = 0.1f;
+		m_Speed = 0.5f;
 	}
 
 	if (!ImGui::GetIO().WantCaptureMouse)

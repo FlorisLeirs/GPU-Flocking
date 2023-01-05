@@ -27,7 +27,7 @@ private:
 	glm::vec3 m_Up{ 0.f,1.f,0.f };
 	int m_Width;
 	int m_Height;
-	float m_Speed = 0.1f;
+	float m_Speed = 20.f;
 	float m_Sensitivity = 100.f;
 
 	bool m_FirstClick = true;
