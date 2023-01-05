@@ -1,5 +1,7 @@
 ﻿#include "pch.h"
 #include "Camera.h"
+
+#include <imgui.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/rotate_vector.hpp>
@@ -69,44 +71,48 @@ void Camera::Inputs(GLFWwindow* pWindow)
 		m_Speed = 0.1f;
 	}
 
-	// Mouse controls
-	if (glfwGetMouseButton(pWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+	if (!ImGui::GetIO().WantCaptureMouse)
 	{
-		glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-
-		if (m_FirstClick)
+		if (glfwGetMouseButton(pWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
 		{
+			glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+			if (m_FirstClick)
+			{
+				glfwSetCursorPos(pWindow, m_Width / 2, m_Height / 2);
+				m_FirstClick = false;
+			}
+
+
+			double mouseX;
+			double mouseY;
+
+			glfwGetCursorPos(pWindow, &mouseX, &mouseY);
+
+			float rotX = m_Sensitivity * static_cast<float>(mouseY - (m_Height / 2)) / m_Height;
+			float rotY = m_Sensitivity * static_cast<float>(mouseX - (m_Width / 2)) / m_Width;
+
+			glm::vec3 newOrientation = glm::rotate(m_Orientation, glm::radians(-rotX),
+				glm::normalize(glm::cross(m_Orientation, m_Up)));
+
+			if (!(glm::angle(newOrientation, m_Up) <= glm::radians(5.f) || glm::angle(newOrientation, -m_Up) <=
+				glm::radians(-5.f)))
+			{
+				m_Orientation = newOrientation;
+			}
+
+			m_Orientation = glm::rotate(m_Orientation, glm::radians(-rotY), m_Up);
+
+
 			glfwSetCursorPos(pWindow, m_Width / 2, m_Height / 2);
-			m_FirstClick = false;
+
 		}
-
-
-		double mouseX;
-		double mouseY;
-
-		glfwGetCursorPos(pWindow, &mouseX, &mouseY);
-
-		float rotX = m_Sensitivity * static_cast<float>(mouseY - (m_Height / 2)) / m_Height;
-		float rotY = m_Sensitivity * static_cast<float>(mouseX - (m_Width / 2)) / m_Width;
-
-		glm::vec3 newOrientation = glm::rotate(m_Orientation, glm::radians(-rotX),
-			glm::normalize(glm::cross(m_Orientation, m_Up)));
-
-		if (!(glm::angle(newOrientation, m_Up) <= glm::radians(5.f) || glm::angle(newOrientation, -m_Up) <=
-			glm::radians(-5.f)))
+		else if (glfwGetMouseButton(pWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
 		{
-			m_Orientation = newOrientation;
+			glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			m_FirstClick = true;
 		}
-
-		m_Orientation = glm::rotate(m_Orientation, glm::radians(-rotY), m_Up);
-
-
-		glfwSetCursorPos(pWindow, m_Width / 2, m_Height / 2);
-
 	}
-	else if (glfwGetMouseButton(pWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
-	{
-		glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-		m_FirstClick = true;
-	}
+
+	// Mouse controls
+
 }

@@ -5,7 +5,6 @@ typedef struct {
 } Array;
 void InitArray(Array* a);
 void InsertArray(Array* a, int element);
-void FreeArray(Array *a);
 // forward declarations
 void GetNeighbours(float3* previousPos, float3 currPos, float neighbourhoodSize, Array* neighbours, int globalId);
 float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours);
@@ -16,7 +15,7 @@ float16 Rotate(float16 transformMatrix, float angle, float3 axis);
 float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId);
 
 //weights: [0] = cohesion, [1]=allignment, [2]=seperation, [3]=wander
-__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __constant float* weights, __constant float* time, __global uint2* randoms)
+__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed)
 {
 	size_t globalId = get_global_id(0); // current agent id in workgroup
 	float3 up = (float3)(0.0f, 1.0f, 0.0f);
@@ -54,7 +53,7 @@ __kernel void Flocking(__global float16* transform, __global float3* previousPos
 	
 	linearVelocity /= weights[0] + weights[1] + weights[2] + weights[3];
 	float3 direction = normalize(linearVelocity);
-	linearVelocity = direction * maxSpeed * time[0];
+	linearVelocity = direction * time * speed;
 	//linearVelocity = (float3)(1.0f, 0.0f, 0.0f) * time[0];
 	
 	float3 newPos = previousPos[globalId] + linearVelocity;
@@ -91,19 +90,19 @@ __kernel void Flocking(__global float16* transform, __global float3* previousPos
 	
 	//change global values
 	currentVelocity[globalId] = linearVelocity;
-	previousPos[globalId] = newPos;	
+	//previousPos[globalId] = newPos;	
 	
 	//translate matrix
-	transform[globalId].sCDE = previousPos[globalId];
+	transform[globalId].sCDE = previousPos[globalId] = newPos;
 	
 	//rotate matrix
-	//float angle = acos(dot(up, direction));
-	//float3 axis = cross(direction, up);
-	//if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
-		//transform[globalId] = Rotate(transform[globalId], angle, axis);
+	float angle = acos(dot(up, direction));
+	float3 axis = cross(direction, up);
+	if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
+		transform[globalId] = Rotate(transform[globalId], angle, axis);
 	
 	//transform[globalId].s0 = neighbours.array[0];
-	FreeArray(&neighbours);
+
 }
 
 // Get indices of neigbours
@@ -133,9 +132,9 @@ float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours)
 	
 	for(int i = 0; i != neighbours->used; ++i)
 	{
-		average = average + previousPos[neighbours->array[i]];
+		average += previousPos[neighbours->array[i]];
 	}
-	average = average / neighbours->used;
+	average /= neighbours->used;
 	return average;
 }
 
@@ -150,9 +149,9 @@ float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours)
 	
 	for(int i = 0; i != neighbours->used; ++i)
 	{
-		average = average + currentVelocity[neighbours->array[i]];
+		average += currentVelocity[neighbours->array[i]];
 	}
-	average = average / neighbours->used;
+	average /= neighbours->used;
 	return average;
 }
 
@@ -257,11 +256,6 @@ void InsertArray(Array* a, int element)
   {
 	  return;
   }
-  
-  a->array[a->used] = element;
-  a->used += 1;
-}
+  a->array[a->used++] = element;
 
-void FreeArray(Array *a) {
- a->used = 0;
 }

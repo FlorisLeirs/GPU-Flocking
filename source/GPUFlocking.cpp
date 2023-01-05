@@ -4,21 +4,15 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 #include "BoidManager.h"
 #include "Camera.h"
 #include "Renderer.h"
 
 
-
-
-GPUFlocking::~GPUFlocking()
-{
-	Renderer::GetInstance().Destroy();
-	BoidManager::GetInstance().Destroy();
-
-	glfwDestroyWindow(m_pWindow);
-	glfwTerminate();
-}
 
 void GPUFlocking::Run()
 {
@@ -28,25 +22,38 @@ void GPUFlocking::Run()
 	//loop
 	while (!glfwWindowShouldClose(m_pWindow))
 	{
-		
 		const auto currentTime = std::chrono::high_resolution_clock::now();
 		const float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
 
-		
+		glfwPollEvents();
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		BoidManager::GetInstance().UpdateUI(m_Width);
 		BoidManager::GetInstance().Update(deltaTime);
-		
+
 		m_pCamera->Inputs(m_pWindow);
 
 		Renderer::GetInstance().Render(m_pWindow);
-		glfwPollEvents();
+
 		lastTime = currentTime;
 	}
 
+	Renderer::GetInstance().Destroy();
+	BoidManager::GetInstance().Destroy();
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
+	glfwDestroyWindow(m_pWindow);
+	glfwTerminate();
 }
 
 void GPUFlocking::Initialize()
 {
-	srand (time(NULL));
+	srand(time(NULL));
 
 	glfwInit();
 	//Setup version and profile
@@ -67,6 +74,12 @@ void GPUFlocking::Initialize()
 
 	m_pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 50.f));
 
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(m_pWindow, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
 
 
 	//OpenCL

@@ -14,8 +14,6 @@ public:
 	GPUFlocking(int windowWidth, int windowHeight)
 		: m_Width(windowWidth), m_Height(windowHeight) {}
 
-	~GPUFlocking();
-
 	void Run();
 	void Initialize();
 

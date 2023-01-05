@@ -4,8 +4,8 @@
 #include <iostream>
 #include <glm/gtx/transform.hpp>
 #include "Renderer.h"
-
-
+#include "imgui.h"
+#include "Camera.h"
 
 void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 {
@@ -17,10 +17,10 @@ void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 
 	for (int i{}; i != nrOfBoids; ++i)
 	{
+		// randomize position and velocity
 		x = rand() % static_cast<int>(m_MaxPos.x - m_MinPos.x) + m_MinPos.x;
 		y = rand() % static_cast<int>(m_MaxPos.y - m_MinPos.y) + m_MinPos.y;
 		z = rand() % static_cast<int>(m_MaxPos.z - m_MinPos.z) + m_MinPos.z;
-		//m_pBoids.emplace_back(new Boid{ glm::vec3(x, y, z) });
 
 		forward.x = rand() % static_cast<int>(m_MaxPos.x - m_MinPos.x) + m_MinPos.x;
 		forward.y = rand() % static_cast<int>(m_MaxPos.y - m_MinPos.y) + m_MinPos.y;
@@ -34,7 +34,7 @@ void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 		m_PrevPositions.push_back(y);
 		m_PrevPositions.push_back(z);
 
-
+		//create transform matrix
 		float angle{};
 		angle = glm::acos(glm::dot(up, forward));
 		glm::mat4 transform{ 1 };
@@ -80,14 +80,22 @@ void BoidManager::Update(float deltaTime)
 	cl_int err = 0;
 	//setup events
 	std::vector<cl::Event> events{};
-	cl::Event timeEvent{};
 	cl::Event flockingEvent{};
 	cl::Event transformEvent;
+
+	// Only change weight and speed if necessary
+	if (m_ChangeWeight)
+	{
+		std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth, m_WanderWeight };
+		err = m_Queue.enqueueWriteBuffer(m_WeightsBuf, CL_FALSE, 0, sizeof(float) * weights.size(), weights.data());
+	}
+	if(m_ChangeSpeed)
+		err = m_Kernel.setArg(6, m_MaxSpeed);
+
 	// change random values and deltaTime
 	std::vector<UINT> randomVector{ static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand()) };
-	err = m_Queue.enqueueWriteBuffer(m_RandomsBuf, CL_TRUE, 0, sizeof(float), randomVector.data());
-	err = m_Queue.enqueueWriteBuffer(m_TimeBuf, CL_TRUE, 0, sizeof(float), &deltaTime, NULL, &timeEvent);
-	events.push_back(timeEvent);
+	err = m_Queue.enqueueWriteBuffer(m_RandomsBuf, CL_TRUE, 0, sizeof(UINT) * randomVector.size(), randomVector.data());
+	err = m_Kernel.setArg(4, deltaTime);
 	// run kernel
 	err = m_Queue.enqueueNDRangeKernel(m_Kernel, cl::NullRange, cl::NDRange(m_NrOfBoids), cl::NullRange, &events, &flockingEvent);
 	events.push_back(flockingEvent);
@@ -112,12 +120,43 @@ void BoidManager::Render() const
 
 }
 
+void BoidManager::UpdateUI(const int width)
+{
+	const float menuWidth = 300.f;
+	const float menuHeight = 300.f;
+	bool open = true;
+	ImGui::SetNextWindowPos(ImVec2(static_cast<float>(width) - menuWidth - 5, 5));
+	ImGui::SetNextWindowSize(ImVec2(menuWidth, menuHeight));
+	ImGui::Begin("GPU Flocking", &open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+	ImGui::PushAllowKeyboardFocus(false);
+
+	ImGui::SliderFloat("Cohesion", &m_CohesionWeigth, 0.0f, 1.0f);
+	ImGui::SliderFloat("Allignment", &m_AllignmentWeigth, 0.0f, 1.0f);
+	ImGui::SliderFloat("Seperation", &m_SeperationWeigth, 0.0f, 1.0f);
+	ImGui::SliderFloat("Wander", &m_WanderWeight, 0.0f, 1.0f);
+	ImGui::Spacing();
+	m_ChangeWeight = ImGui::Button("Save Weight");
+	ImGui::Spacing();
+	ImGui::Spacing();
+	ImGui::Spacing();
+	ImGui::SliderFloat("Speed", &m_MaxSpeed, 0.f, 20.f);
+	m_ChangeSpeed = ImGui::Button("Save Speed");
+	ImGui::Text("Values need to be saved to take effect");
+
+	ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::PopAllowKeyboardFocus();
+	ImGui::End();
+}
+
 void BoidManager::SetUpOpenCL()
 {
 	m_Context = m_pProgram->getInfo<CL_PROGRAM_CONTEXT>();
 	auto devices = m_Context.getInfo<CL_CONTEXT_DEVICES>();
 	m_Device = devices.front();
 	m_Kernel = cl::Kernel(*m_pProgram, "Flocking");
+	m_Queue = cl::CommandQueue(m_Context, m_Device);
 
 	//Create buffers
 	cl_int err = 0;
@@ -145,12 +184,9 @@ void BoidManager::SetUpOpenCL()
 	m_RandomsBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(UINT) * randomVector.size(), randomVector.data(), &err);
 
-	//m_NeighbourhoodSizeBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
-	//	sizeof(float), &m_NeighbourRadius, &err);
-
-
-	//m_DebugBuf = cl::Buffer(m_Context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_READ_ONLY,
-	//	sizeof(int) * m_pBoids.size());
+	//m_SpeedBuf = cl::Buffer(
+	//	m_Context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+	//	sizeof(float), &m_MaxSpeed, &err);
 
 	//Set kernel arguments
 	err = m_Kernel.setArg(0, m_TransformBuf);
@@ -159,8 +195,6 @@ void BoidManager::SetUpOpenCL()
 	err = m_Kernel.setArg(3, m_WeightsBuf);
 	err = m_Kernel.setArg(4, m_TimeBuf);
 	err = m_Kernel.setArg(5, m_RandomsBuf);
-	//err = m_Kernel.setArg(6, m_NeighbourhoodSizeBuf);
-	//err = m_Kernel.setArg(7, m_DebugBuf);
+	err = m_Kernel.setArg(6, m_MaxSpeed);
 
-	m_Queue = cl::CommandQueue(m_Context, m_Device);
 }

@@ -2,6 +2,8 @@
 #include "Renderer.h"
 
 #include <glm/gtc/type_ptr.hpp>
+#include <imgui/imgui.h>
+#include <imgui_impl_opengl3.h>
 
 #include "Camera.h"
 #include "EBO.h"
@@ -89,9 +91,6 @@ void Renderer::Destroy()
 
 void Renderer::Render(GLFWwindow* pWindow) const
 {
-	glClearColor(0.2f, 0.4f, 0.7f, 1.f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	m_pShader->Activate();
 
 	m_pCamera->Matrix(45.f, 0.1f, 600.f, m_pShader, "camMatrix");
@@ -99,8 +98,13 @@ void Renderer::Render(GLFWwindow* pWindow) const
 	m_pVAO->Bind();
 	BoidManager::GetInstance().Render();
 
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 	glfwSwapBuffers(pWindow);
+
+	glClearColor(0.2f, 0.4f, 0.7f, 1.f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void Renderer::RenderBoid(glm::mat4 transform)

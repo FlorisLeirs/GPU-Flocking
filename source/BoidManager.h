@@ -14,6 +14,8 @@ public:
 
 	void Update(float deltaTime);
 	void Render() const;
+
+	void UpdateUI(const int width);
 private:
 	int m_NrOfBoids;
 
@@ -28,11 +30,11 @@ private:
 	cl::Buffer m_WeightsBuf;
 	cl::Buffer m_TimeBuf;
 	cl::Buffer m_RandomsBuf;
-	cl::Buffer m_NeighbourhoodSizeBuf;
+	cl::Buffer m_SpeedBuf;
 	cl::Buffer m_DebugBuf;
 
 	float m_NeighbourRadius = 20.f;
-	float m_MaxSpeed = 1.f;
+	float m_MaxSpeed = 1.0f;
 	float m_DeltaTime{};
 	
 	float m_SeperationWeigth = 0.4f;
@@ -47,7 +49,8 @@ private:
 	std::vector<float> m_PrevPositions{};
 	std::vector<float> m_CurrentVelocities{};
 
-	bool m_ChangeSettings{false};
+	bool m_ChangeWeight{false};
+	bool m_ChangeSpeed{false};
 
 
 	void SetUpOpenCL();
