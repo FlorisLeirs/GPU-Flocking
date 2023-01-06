@@ -18,10 +18,6 @@ float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t 
 __kernel void Flocking(__global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed, float neighbourhoodSize, float maxPos, __global float16* transform)
 {
 	size_t globalId = get_global_id(0); // current agent id in workgroup
-	//float3 up = (float3)(0.0f, 1.0f, 0.0f);
-	
-	//constant float maxSpeed = 3.0f;
-	//constant float neighbourhoodSize = 10.f;
 	
 	//Create neighbours array
 	private Array neighbours;
