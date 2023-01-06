@@ -53,7 +53,7 @@ void GPUFlocking::Run()
 
 void GPUFlocking::Initialize()
 {
-	srand(time(NULL));
+	srand(time(nullptr));
 
 	glfwInit();
 	//Setup version and profile
@@ -72,8 +72,9 @@ void GPUFlocking::Initialize()
 	glfwMakeContextCurrent(m_pWindow);
 
 
-	m_pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 50.f));
+	m_pCamera = new Camera(m_Width, m_Height, glm::vec3(0.f, 0.f, 160.f));
 
+	// Setup ImGui
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -93,19 +94,22 @@ void GPUFlocking::Initialize()
 	platform.getDevices(CL_DEVICE_TYPE_GPU, &devices);
 	cl::Device device = devices.front();
 
+	//Create Source
 	std::ifstream kernelFile{ "Flocking.cl" };
 	std::string srcStr{ std::istreambuf_iterator<char>(kernelFile), std::istreambuf_iterator<char>() };
-
 	cl::Program::Sources sources(1, std::make_pair(srcStr.c_str(), srcStr.length() + 1));
+
 	cl::Context context(device);
 	cl::Program program(context, sources);
 	cl_int err = 0;
 	err = program.build();
+
+	// Print kernel build info(errors and warnings);
 	std::string info;
 	program.getBuildInfo(device, CL_PROGRAM_BUILD_LOG, &info);
 	std::cout << info << std::endl;
 
 
 	Renderer::GetInstance().Initialize(m_pWindow, m_pCamera);
-	BoidManager::GetInstance().Initialize(20000, &program);
+	BoidManager::GetInstance().Initialize(100000, &program);
 }

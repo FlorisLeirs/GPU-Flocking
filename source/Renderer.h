@@ -16,7 +16,7 @@ public:
 	void Destroy();
 
 	void Render(GLFWwindow* pWindow) const;
-	void RenderBoid(glm::mat4 transform);
+	void RenderBoids(const std::vector<float>& positions, int nrOfBoids);
 
 private:
 	Shader* m_pShader = nullptr;

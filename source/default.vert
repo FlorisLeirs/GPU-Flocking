@@ -4,10 +4,15 @@ layout (location = 0) in vec3 aPos;
 out vec3 color;
 
 uniform mat4 camMatrix;
-uniform mat4 transformMatrix;
+uniform vec3 pos;
 
 void main()
 {
-	gl_Position = camMatrix * (transformMatrix * vec4(aPos, 1.0));
-	color = vec3(transformMatrix[3][0]/100.0f, transformMatrix[3][1]/100.0f, transformMatrix[3][2]/100.0f);
+   mat4 translation = mat4(
+        vec4(1.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 1.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(pos, 1.0));
+	gl_Position = camMatrix * (translation * vec4(aPos, 1.0));
+	color = vec3(pos.x/100.0f, pos.y/100.0f, pos.z/100.0f);
 }

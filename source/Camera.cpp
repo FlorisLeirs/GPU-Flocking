@@ -29,7 +29,6 @@ void Camera::Matrix(float FOVdeg, float nearPlane, float farPlane, Shader* pShad
 
 void Camera::Inputs(GLFWwindow* pWindow)
 {
-	//glfwGetWindowSize(pWindow, &m_Width, &m_Height);
 
 	//WASD
 	if (glfwGetKey(pWindow, GLFW_KEY_W) == GLFW_PRESS)
@@ -71,13 +70,16 @@ void Camera::Inputs(GLFWwindow* pWindow)
 		m_Speed = 0.5f;
 	}
 
+
+	// Mouse
 	if (!ImGui::GetIO().WantCaptureMouse)
 	{
 		if (glfwGetMouseButton(pWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
 		{
-			glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+			
 			if (m_FirstClick)
 			{
+				glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 				glfwSetCursorPos(pWindow, m_Width / 2, m_Height / 2);
 				m_FirstClick = false;
 			}
@@ -112,7 +114,4 @@ void Camera::Inputs(GLFWwindow* pWindow)
 			m_FirstClick = true;
 		}
 	}
-
-	// Mouse controls
-
 }

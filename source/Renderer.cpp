@@ -107,9 +107,14 @@ void Renderer::Render(GLFWwindow* pWindow) const
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::RenderBoid(glm::mat4 transform)
+void Renderer::RenderBoids(const std::vector<float>& positions, int nrOfBoids)
 {
-	GLuint transformLoc = glGetUniformLocation(m_pShader->GetID(), "transformMatrix");
-	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
-	glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	GLuint transformLoc = glGetUniformLocation(m_pShader->GetID(), "pos");
+	for (int i{}; i != nrOfBoids; ++i)
+	{
+		glUniform3f(transformLoc, positions[i * 16 + 12], positions[i * 16 + 13], positions[i * 16 + 14]);
+		//glUniform3f(transformLoc, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	}
+
 }

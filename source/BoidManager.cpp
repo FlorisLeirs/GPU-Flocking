@@ -12,19 +12,18 @@ void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 	m_NrOfBoids = nrOfBoids;
 
 	float x, y, z;
-	glm::vec3 up{ 0.f,1.f,0.f };
 	glm::vec3 forward{ 1.f,0.f,0.f };
 
 	for (int i{}; i != nrOfBoids; ++i)
 	{
 		// randomize position and velocity
-		x = rand() % static_cast<int>(m_MaxPos.x - m_MinPos.x) + m_MinPos.x;
-		y = rand() % static_cast<int>(m_MaxPos.y - m_MinPos.y) + m_MinPos.y;
-		z = rand() % static_cast<int>(m_MaxPos.z - m_MinPos.z) + m_MinPos.z;
+		x = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
+		y = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
+		z = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
 
-		forward.x = rand() % static_cast<int>(m_MaxPos.x - m_MinPos.x) + m_MinPos.x;
-		forward.y = rand() % static_cast<int>(m_MaxPos.y - m_MinPos.y) + m_MinPos.y;
-		forward.z = rand() % static_cast<int>(m_MaxPos.z - m_MinPos.z) + m_MinPos.z;
+		forward.x = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
+		forward.y = rand() % static_cast<int>(m_BoxSize * 2)- m_BoxSize;
+		forward.z = rand() % static_cast<int>(m_BoxSize * 2)- m_BoxSize;
 		forward = normalize(forward) * 10.f;
 		m_CurrentVelocities.push_back(forward.x);
 		m_CurrentVelocities.push_back(forward.y);
@@ -34,34 +33,7 @@ void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 		m_PrevPositions.push_back(y);
 		m_PrevPositions.push_back(z);
 
-		//create transform matrix
-		float angle{};
-		angle = glm::acos(glm::dot(up, forward));
-		glm::mat4 transform{ 1 };
-		if (angle < FLT_EPSILON && angle > -FLT_EPSILON)
-			transform = glm::rotate(transform, angle, glm::cross(forward, up));
-		transform = glm::translate(transform, glm::vec3{ x,y,z });
-
-		m_Tranforms.push_back(transform[0][0]);
-		m_Tranforms.push_back(transform[0][1]);
-		m_Tranforms.push_back(transform[0][2]);
-		m_Tranforms.push_back(transform[0][3]);
-
-		m_Tranforms.push_back(transform[1][0]);
-		m_Tranforms.push_back(transform[1][1]);
-		m_Tranforms.push_back(transform[1][2]);
-		m_Tranforms.push_back(transform[1][3]);
-
-		m_Tranforms.push_back(transform[2][0]);
-		m_Tranforms.push_back(transform[2][1]);
-		m_Tranforms.push_back(transform[2][2]);
-		m_Tranforms.push_back(transform[2][3]);
-
-		m_Tranforms.push_back(transform[3][0]);
-		m_Tranforms.push_back(transform[3][1]);
-		m_Tranforms.push_back(transform[3][2]);
-		m_Tranforms.push_back(transform[3][3]);
-
+		m_Tranforms.resize(16 * nrOfBoids, 0.f);
 	}
 
 	m_pProgram = pProgram;
@@ -83,21 +55,21 @@ void BoidManager::Update(float deltaTime)
 	cl::Event flockingEvent{};
 	cl::Event transformEvent;
 
-	// Only change weight and speed if necessary
+	// Only change if necessary
 	if (m_ChangeWeight)
 	{
 		std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth, m_WanderWeight };
 		err = m_Queue.enqueueWriteBuffer(m_WeightsBuf, CL_FALSE, 0, sizeof(float) * weights.size(), weights.data());
 	}
 	if (m_ChangeSpeed)
-		err = m_Kernel.setArg(6, m_MaxSpeed);
+		err = m_Kernel.setArg(5, m_MaxSpeed);
 	if (m_ChangeNeighbourhoodSize)
-		err = m_Kernel.setArg(7, m_NeighbourRadius);
+		err = m_Kernel.setArg(6, m_NeighbourRadius);
 
-	// change random values and deltaTime
+	// change random-values and deltaTime
 	std::vector<UINT> randomVector{ static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand()) };
 	err = m_Queue.enqueueWriteBuffer(m_RandomsBuf, CL_TRUE, 0, sizeof(UINT) * randomVector.size(), randomVector.data());
-	err = m_Kernel.setArg(4, deltaTime);
+	err = m_Kernel.setArg(3, deltaTime);
 	// run kernel
 	err = m_Queue.enqueueNDRangeKernel(m_Kernel, cl::NullRange, cl::NDRange(m_NrOfBoids), cl::NullRange, &events, &flockingEvent);
 	events.push_back(flockingEvent);
@@ -111,15 +83,7 @@ void BoidManager::Update(float deltaTime)
 
 void BoidManager::Render() const
 {
-	for (int i{}; i != m_NrOfBoids; ++i)
-	{
-		Renderer::GetInstance().RenderBoid(glm::mat4(
-			m_Tranforms[i * 16], m_Tranforms[i * 16 + 1], m_Tranforms[i * 16 + 2], m_Tranforms[i * 16 + 3], // [0]
-			m_Tranforms[i * 16 + 4], m_Tranforms[i * 16 + 5], m_Tranforms[i * 16 + 6], m_Tranforms[i * 16 + 7], // [1]
-			m_Tranforms[i * 16 + 8], m_Tranforms[i * 16 + 9], m_Tranforms[i * 16 + 10], m_Tranforms[i * 16 + 11], // [2]
-			m_Tranforms[i * 16 + 12], m_Tranforms[i * 16 + 13], m_Tranforms[i * 16 + 14], m_Tranforms[i * 16 + 15])); // [3]
-	}
-
+	Renderer::GetInstance().RenderBoids(m_Tranforms, m_NrOfBoids);
 }
 
 void BoidManager::UpdateUI(const int width)
@@ -142,7 +106,7 @@ void BoidManager::UpdateUI(const int width)
 	ImGui::Spacing();
 
 	ImGui::Spacing();
-	ImGui::SliderFloat("Speed", &m_MaxSpeed, 0.f, 25.f);
+	ImGui::SliderFloat("Speed", &m_MaxSpeed, 0.f, 40.f);
 	m_ChangeSpeed = ImGui::Button("Save Speed");
 	ImGui::Spacing();
 	ImGui::Spacing();
@@ -170,12 +134,13 @@ void BoidManager::SetUpOpenCL()
 
 	//Create buffers
 	cl_int err = 0;
+
 	m_TransformBuf = cl::Buffer(
 		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * m_Tranforms.size(), m_Tranforms.data(), &err);
 
 	m_PrevPosBuf = cl::Buffer(
-		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * m_PrevPositions.size(), m_PrevPositions.data(), &err);
 
 	m_VelocityBuf = cl::Buffer(
@@ -195,13 +160,14 @@ void BoidManager::SetUpOpenCL()
 		sizeof(UINT) * randomVector.size(), randomVector.data(), &err);
 
 	//Set kernel arguments
-	err = m_Kernel.setArg(0, m_TransformBuf);
-	err = m_Kernel.setArg(1, m_PrevPosBuf);
-	err = m_Kernel.setArg(2, m_VelocityBuf);
-	err = m_Kernel.setArg(3, m_WeightsBuf);
-	err = m_Kernel.setArg(4, m_TimeBuf);
-	err = m_Kernel.setArg(5, m_RandomsBuf);
-	err = m_Kernel.setArg(6, m_MaxSpeed);
-	err = m_Kernel.setArg(7, m_NeighbourRadius);
+	err = m_Kernel.setArg(0, m_PrevPosBuf);
+	err = m_Kernel.setArg(1, m_VelocityBuf);
+	err = m_Kernel.setArg(2, m_WeightsBuf);
+	err = m_Kernel.setArg(3, m_TimeBuf);
+	err = m_Kernel.setArg(4, m_RandomsBuf);
+	err = m_Kernel.setArg(5, m_MaxSpeed);
+	err = m_Kernel.setArg(6, m_NeighbourRadius);
+	err = m_Kernel.setArg(7, m_BoxSize);
+	err = m_Kernel.setArg(8, m_TransformBuf);
 
 }

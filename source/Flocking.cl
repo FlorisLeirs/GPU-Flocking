@@ -1,6 +1,6 @@
 // array struct
 typedef struct {
-  int array[200];
+  int array[500];
   size_t used;
 } Array;
 void InitArray(Array* a);
@@ -15,10 +15,10 @@ float16 Rotate(float16 transformMatrix, float angle, float3 axis);
 float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId);
 
 //weights: [0] = cohesion, [1]=allignment, [2]=seperation, [3]=wander
-__kernel void Flocking(__global float16* transform, __global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed, float neighbourhoodSize)
+__kernel void Flocking(__global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed, float neighbourhoodSize, float maxPos, __global float16* transform)
 {
 	size_t globalId = get_global_id(0); // current agent id in workgroup
-	float3 up = (float3)(0.0f, 1.0f, 0.0f);
+	//float3 up = (float3)(0.0f, 1.0f, 0.0f);
 	
 	//constant float maxSpeed = 3.0f;
 	//constant float neighbourhoodSize = 10.f;
@@ -54,41 +54,41 @@ __kernel void Flocking(__global float16* transform, __global float3* previousPos
 	linearVelocity /= weights[0] + weights[1] + weights[2] + weights[3];
 	float3 direction = normalize(linearVelocity);
 	linearVelocity = direction * time * speed;
-	//linearVelocity = (float3)(1.0f, 0.0f, 0.0f) * time[0];
 	
 	float3 newPos = previousPos[globalId] + linearVelocity;
 	// X
-	if(newPos.x > 100.0f)
+	if(newPos.x > maxPos)
 	{
-		newPos.x = -100.0f;
+		newPos.x = -maxPos;
 	}
-	else if(newPos.x < -100.0f)
+	else if(newPos.x < -maxPos)
 	{
-		newPos.x = 100.0f;
+		newPos.x = maxPos;
 	}
 	// Y
-	if(newPos.y > 100.0f)
+	if(newPos.y > maxPos)
 	{
-		newPos.y = -100.0f;
+		newPos.y = -maxPos;
 	}
-	else if(newPos.y < -100.0f)
+	else if(newPos.y < -maxPos)
 	{
-		newPos.y = 100.0f;
+		newPos.y = maxPos;
 	}
 	// Z
-	if(newPos.z > 100.0f)
+	if(newPos.z > maxPos)
 	{
-		newPos.z = -100.0f;
+		newPos.z = -maxPos;
 	}
-	else if(newPos.z < -100.0f)
+	else if(newPos.z < -maxPos)
 	{
-		newPos.z = 100.0f;
+		newPos.z = maxPos;
 	}
 	
 	barrier(CLK_GLOBAL_MEM_FENCE); // all previous must be completed on all work items in work group
 	
 	//change global values
 	currentVelocity[globalId] = linearVelocity;
+	//previousPos[globalId] = newPos;
 	
 	//translate matrix
 	transform[globalId].sCDE = previousPos[globalId] = newPos;
@@ -108,7 +108,7 @@ void GetNeighbours(float3* previousPos, float3 currPos, float neighbourhoodSize,
 		if(i != globalId && fast_distance(currPos, previousPos[i]) <= neighbourhoodSize)
 		{
 			InsertArray(neighbours, i);// insert index in array
-			if(neighbours->used == 200)
+			if(neighbours->used == 500)
 				return;
 		}
 
@@ -129,7 +129,7 @@ float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours)
 	{
 		average += previousPos[neighbours->array[i]];
 	}
-	average /= neighbours->used;
+	average = average / neighbours->used;
 	return average;
 }
 
@@ -146,7 +146,7 @@ float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours)
 	{
 		average += currentVelocity[neighbours->array[i]];
 	}
-	average /= neighbours->used;
+	average = average / neighbours->used;
 	return average;
 }
 
@@ -191,10 +191,10 @@ float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t 
 	uint result = randoms.y ^ (randoms.y >> 19) ^ (t ^ (t >> 8));
 	
 	// get angle
-	float angle = result % 90 - 45;
+	float angle = result % 30 - 15;
 	angle = radians(angle);
 	// get z coordinate
-	int z = result % 20 - 10;
+	int z = result % 30 - 15;
 	
 	// Create target position
 	float3 target = (float3)(cos(angle), sin(angle), z);
@@ -247,7 +247,7 @@ void InitArray(Array* a)
 }
 void InsertArray(Array* a, int element) 
 {
-  if (a->used == 200) 
+  if (a->used == 500) 
   {
 	  return;
   }

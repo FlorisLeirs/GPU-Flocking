@@ -42,8 +42,7 @@ private:
 	float m_AllignmentWeigth = 0.5f;
 	float m_WanderWeight = 0.5f;
 
-	glm::vec3 m_MinPos{-50.f, -50.f, -50.f};// x, y and z min spawn positions
-	glm::vec3 m_MaxPos{50.f, 50.f, 50.f};// x, y and z max spawn positions
+	float m_BoxSize{150.f};
 
 	std::vector<float> m_Tranforms{};
 	std::vector<float> m_PrevPositions{};
