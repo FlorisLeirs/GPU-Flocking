@@ -22,14 +22,15 @@ private:
 	cl::Program* m_pProgram;
 	cl::Context m_Context;
 	cl::Device m_Device;
-	cl::Kernel m_Kernel;
+	cl::Kernel m_FlockingKernel;
+	cl::Kernel m_DataKernel;
 	cl::CommandQueue m_Queue;
 
 	cl::Buffer m_TransformBuf;
 	cl::Buffer m_PrevPosBuf;
-	cl::Buffer m_VelocityBuf;
+	cl::Buffer m_PrevVelocityBuf;
+	cl::Buffer m_CurrVelocityBuf;
 	cl::Buffer m_WeightsBuf;
-	cl::Buffer m_TimeBuf;
 	cl::Buffer m_RandomsBuf;
 
 
@@ -48,7 +49,6 @@ private:
 	std::vector<float> m_PrevPositions{};
 	std::vector<float> m_CurrentVelocities{};
 
-	bool m_ChangeWeight{false};
 	bool m_ChangeSpeed{false};
 	bool m_ChangeNeighbourhoodSize{false};
 

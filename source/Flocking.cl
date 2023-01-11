@@ -8,16 +8,16 @@ void InsertArray(Array* a, int element);
 // forward declarations
 void GetNeighbours(float3* previousPos, float3 currPos, float neighbourhoodSize, Array* neighbours, int globalId);
 float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours);
-float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours);
+float3 GetAverageNeighbourVelocity(float3* prevVelocity, Array* neighbours);
 float3 Seek(float3 target, float3 pos);
 float3 Seperation(float3* previousPos, Array* neighbours, float3 pos);
 float16 Rotate(float16 transformMatrix, float angle, float3 axis);
-float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId);
+float3 Wander(float3 previousPos, float3 prevVelocity, uint2 randoms, size_t globalId);
 
 //weights: [0] = cohesion, [1]=allignment, [2]=seperation, [3]=wander
-__kernel void Flocking(__global float3* previousPos, __global float3* currentVelocity, __global float* weights, float time, __global uint2* randoms, float speed, float neighbourhoodSize, float maxPos, __global float16* transform)
+__kernel void Flocking(__global float3* previousPos, __global float3* prevVelocity, __global float* weights, float time, __global uint2* randoms, float speed, float neighbourhoodSize, float maxPos, __global float16* transform, __global float3* currentVelocity)
 {
-	size_t globalId = get_global_id(0); // current agent id in workgroup
+	size_t globalId = get_global_id(0); // current agent id
 	
 	//Create neighbours array
 	private Array neighbours;
@@ -32,7 +32,7 @@ __kernel void Flocking(__global float3* previousPos, __global float3* currentVel
 	linearVelocity += fast_normalize(cohesionVelocity) * weights[0];//set linear velocity
 	
 	//Allignment
-	float3 allignmentVelocity = GetAverageNeighbourVelocity(currentVelocity, &neighbours);
+	float3 allignmentVelocity = GetAverageNeighbourVelocity(prevVelocity, &neighbours);
 	allignmentVelocity = fast_normalize(allignmentVelocity);
 	
 	linearVelocity += allignmentVelocity * weights[1];// add to linear velocity
@@ -43,7 +43,7 @@ __kernel void Flocking(__global float3* previousPos, __global float3* currentVel
 	linearVelocity += fast_normalize(seperationVelocity) * weights[2];// add to linear velocity
 	
 	//Wander
-	float3 wanderVelocity = Wander(previousPos[globalId], currentVelocity[globalId], randoms[0], globalId);
+	float3 wanderVelocity = Wander(previousPos[globalId], prevVelocity[globalId], randoms[0], globalId);
 	
 	linearVelocity += wanderVelocity * weights[3];
 	
@@ -84,16 +84,21 @@ __kernel void Flocking(__global float3* previousPos, __global float3* currentVel
 	
 	//change global values
 	currentVelocity[globalId] = linearVelocity;
-	//previousPos[globalId] = newPos;
-	
-	//translate matrix
-	transform[globalId].sCDE = previousPos[globalId] = newPos;
+	transform[globalId].sCDE = newPos;
 	
 	//rotate matrix
 	//float angle = acos(dot(up, direction));
 	//float3 axis = cross(direction, up);
 	//if(angle > FLT_EPSILON || angle < -FLT_EPSILON)
 	//	transform[globalId] = Rotate(transform[globalId], angle, axis);
+}
+
+__kernel void SetData(__global float3* previousPos, __global float3* prevVelocity, __global float16* transform, __global float3* currentVelocity)
+{
+	size_t globalId = get_global_id(0); // current agent id
+	
+	previousPos[globalId] = transform[globalId].sCDE;
+	prevVelocity[globalId] = currentVelocity[globalId];
 }
 
 // Get indices of neigbours
@@ -130,7 +135,7 @@ float3 GetAverageNeighbourPos(float3* previousPos, Array* neighbours)
 }
 
 // Average velocity in previous frame
-float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours)
+float3 GetAverageNeighbourVelocity(float3* prevVelocity, Array* neighbours)
 {
 	float3 average = (float3)(0.0f, 0.0f, 0.0f);
 	if(neighbours->used < 1)
@@ -140,7 +145,7 @@ float3 GetAverageNeighbourVelocity(float3* currentVelocity, Array* neighbours)
 	
 	for(int i = 0; i != neighbours->used; ++i)
 	{
-		average += currentVelocity[neighbours->array[i]];
+		average += prevVelocity[neighbours->array[i]];
 	}
 	average = average / neighbours->used;
 	return average;
@@ -176,7 +181,7 @@ float3 Seperation(float3* previousPos, Array *neighbours, float3 pos)
 }
 
 // Wander behaviour
-float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t globalId)
+float3 Wander(float3 previousPos, float3 prevVelocity, uint2 randoms, size_t globalId)
 {
 	int radius = 20.0f;
 	int offset = 15.0f;
@@ -195,7 +200,7 @@ float3 Wander(float3 previousPos, float3 currentVelocity, uint2 randoms, size_t 
 	// Create target position
 	float3 target = (float3)(cos(angle), sin(angle), z);
 	target = normalize(target) * radius;
-	target += previousPos + normalize(currentVelocity) * offset;
+	target += previousPos + normalize(prevVelocity) * offset;
 	
 	
 	float3 linearVelocity = Seek(target, previousPos);

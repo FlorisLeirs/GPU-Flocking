@@ -5,7 +5,7 @@
 #include <glm/gtx/transform.hpp>
 #include "Renderer.h"
 #include "imgui.h"
-#include "Camera.h"
+
 
 void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 {
@@ -22,8 +22,8 @@ void BoidManager::Initialize(int nrOfBoids, cl::Program* pProgram)
 		z = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
 
 		forward.x = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
-		forward.y = rand() % static_cast<int>(m_BoxSize * 2)- m_BoxSize;
-		forward.z = rand() % static_cast<int>(m_BoxSize * 2)- m_BoxSize;
+		forward.y = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
+		forward.z = rand() % static_cast<int>(m_BoxSize * 2) - m_BoxSize;
 		forward = normalize(forward) * 10.f;
 		m_CurrentVelocities.push_back(forward.x);
 		m_CurrentVelocities.push_back(forward.y);
@@ -55,24 +55,28 @@ void BoidManager::Update(float deltaTime)
 	cl::Event flockingEvent{};
 	cl::Event transformEvent;
 
+
+	std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth, m_WanderWeight };
+	err = m_Queue.enqueueWriteBuffer(m_WeightsBuf, CL_FALSE, 0, sizeof(float) * weights.size(), weights.data());
+
 	// Only change if necessary
-	if (m_ChangeWeight)
-	{
-		std::vector<float> weights{ m_CohesionWeigth, m_AllignmentWeigth, m_SeperationWeigth, m_WanderWeight };
-		err = m_Queue.enqueueWriteBuffer(m_WeightsBuf, CL_FALSE, 0, sizeof(float) * weights.size(), weights.data());
-	}
 	if (m_ChangeSpeed)
-		err = m_Kernel.setArg(5, m_MaxSpeed);
+		err = m_FlockingKernel.setArg(5, m_MaxSpeed);
 	if (m_ChangeNeighbourhoodSize)
-		err = m_Kernel.setArg(6, m_NeighbourRadius);
+		err = m_FlockingKernel.setArg(6, m_NeighbourRadius);
 
 	// change random-values and deltaTime
 	std::vector<UINT> randomVector{ static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand()) };
 	err = m_Queue.enqueueWriteBuffer(m_RandomsBuf, CL_TRUE, 0, sizeof(UINT) * randomVector.size(), randomVector.data());
-	err = m_Kernel.setArg(3, deltaTime);
-	// run kernel
-	err = m_Queue.enqueueNDRangeKernel(m_Kernel, cl::NullRange, cl::NDRange(m_NrOfBoids), cl::NullRange, &events, &flockingEvent);
+	err = m_FlockingKernel.setArg(3, deltaTime);
+
+	// run flocking algorithm
+	err = m_Queue.enqueueNDRangeKernel(m_FlockingKernel, cl::NullRange, cl::NDRange(m_NrOfBoids), cl::NullRange, &events, &flockingEvent);
 	events.push_back(flockingEvent);
+
+	// Change data on buffers
+	err = m_Queue.enqueueNDRangeKernel(m_DataKernel, cl::NullRange, cl::NDRange(m_NrOfBoids), cl::NullRange, &events);
+
 	// read new transforms back to cpu
 	err = m_Queue.enqueueReadBuffer(m_TransformBuf, CL_TRUE, 0, sizeof(float) * m_Tranforms.size(),
 		m_Tranforms.data(), NULL, &transformEvent);
@@ -101,8 +105,6 @@ void BoidManager::UpdateUI(const int width)
 	ImGui::SliderFloat("Seperation", &m_SeperationWeigth, 0.0f, 1.0f);
 	ImGui::SliderFloat("Wander", &m_WanderWeight, 0.1f, 1.0f);
 	ImGui::Spacing();
-	m_ChangeWeight = ImGui::Button("Save Weight");
-	ImGui::Spacing();
 	ImGui::Spacing();
 
 	ImGui::Spacing();
@@ -126,14 +128,17 @@ void BoidManager::UpdateUI(const int width)
 
 void BoidManager::SetUpOpenCL()
 {
+	cl_int err = 0;
+
 	m_Context = m_pProgram->getInfo<CL_PROGRAM_CONTEXT>();
 	auto devices = m_Context.getInfo<CL_CONTEXT_DEVICES>();
 	m_Device = devices.front();
-	m_Kernel = cl::Kernel(*m_pProgram, "Flocking");
+	m_FlockingKernel = cl::Kernel(*m_pProgram, "Flocking", &err);
+	m_DataKernel = cl::Kernel(*m_pProgram, "SetData", &err);
 	m_Queue = cl::CommandQueue(m_Context, m_Device);
 
 	//Create buffers
-	cl_int err = 0;
+
 
 	m_TransformBuf = cl::Buffer(
 		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
@@ -143,7 +148,11 @@ void BoidManager::SetUpOpenCL()
 		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * m_PrevPositions.size(), m_PrevPositions.data(), &err);
 
-	m_VelocityBuf = cl::Buffer(
+	m_PrevVelocityBuf = cl::Buffer(
+		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+		sizeof(float) * m_CurrentVelocities.size(), m_CurrentVelocities.data(), &err);
+
+	m_CurrVelocityBuf = cl::Buffer(
 		m_Context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * m_CurrentVelocities.size(), m_CurrentVelocities.data(), &err);
 
@@ -151,23 +160,25 @@ void BoidManager::SetUpOpenCL()
 	m_WeightsBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * weights.size(), weights.data(), &err);
 
-	m_TimeBuf = cl::Buffer(
-		m_Context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
-		sizeof(float), &m_DeltaTime, &err);
-
 	std::vector<UINT> randomVector{ static_cast<unsigned>(std::rand()), static_cast<unsigned>(std::rand()) };
 	m_RandomsBuf = cl::Buffer(m_Context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
 		sizeof(UINT) * randomVector.size(), randomVector.data(), &err);
 
 	//Set kernel arguments
-	err = m_Kernel.setArg(0, m_PrevPosBuf);
-	err = m_Kernel.setArg(1, m_VelocityBuf);
-	err = m_Kernel.setArg(2, m_WeightsBuf);
-	err = m_Kernel.setArg(3, m_TimeBuf);
-	err = m_Kernel.setArg(4, m_RandomsBuf);
-	err = m_Kernel.setArg(5, m_MaxSpeed);
-	err = m_Kernel.setArg(6, m_NeighbourRadius);
-	err = m_Kernel.setArg(7, m_BoxSize);
-	err = m_Kernel.setArg(8, m_TransformBuf);
+	err = m_FlockingKernel.setArg(0, m_PrevPosBuf);
+	err = m_FlockingKernel.setArg(1, m_PrevVelocityBuf);
+	err = m_FlockingKernel.setArg(2, m_WeightsBuf);
+	err = m_FlockingKernel.setArg(3, m_DeltaTime);
+	err = m_FlockingKernel.setArg(4, m_RandomsBuf);
+	err = m_FlockingKernel.setArg(5, m_MaxSpeed);
+	err = m_FlockingKernel.setArg(6, m_NeighbourRadius);
+	err = m_FlockingKernel.setArg(7, m_BoxSize);
+	err = m_FlockingKernel.setArg(8, m_TransformBuf);
+	err = m_FlockingKernel.setArg(9, m_CurrVelocityBuf);
+
+	err = m_DataKernel.setArg(0, m_PrevPosBuf);
+	err = m_DataKernel.setArg(1, m_PrevVelocityBuf);
+	err = m_DataKernel.setArg(2, m_TransformBuf);
+	err = m_DataKernel.setArg(3, m_CurrVelocityBuf);
 
 }
