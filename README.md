@@ -58,3 +58,6 @@ I found that when I used a lot of boids some I obtained some visually stunning r
 There still some improvements that could make a big difference. Because of the limited time I had for this project I wasn't able to implement spatial partitioning. Another improvement I looked into was coupling OpenCL and OpenGL. This way they would use the same buffer, that means that instead of having the CPU read the data and then send it back to the GPU for OpenGL the data could just stay in the GPU.
 
 There is also always the possibility to add some more behaviours into the mix.
+
+## Articles
+[Introduction to GPGPU for AI](http://www.gameaipro.com/GameAIPro/GameAIPro_Chapter45_Introduction_to_GPGPU_for_AI.pdf) by Conan Bourke and Tomasz Bednarz
